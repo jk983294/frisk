@@ -33,6 +33,7 @@ y_test <- y[-train_rows]
 ## coef L2 penalty
 ################################
 ridge_model <- cv.glmnet(x_train, y_train, type.measure="mse", alpha=0, family="gaussian")
+plot(ridge_model) # plot cross-validation results
 ridge_pred <- predict(ridge_model, s=ridge_model$lambda.1se, newx=x_test)
 ## s = is the "size" of the penalty that we want to use, and
 ##     thus, corresponds to lambda. (I believe that glmnet creators
