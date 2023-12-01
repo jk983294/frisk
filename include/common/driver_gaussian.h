@@ -56,7 +56,7 @@ struct FitPathGaussian
 
         // cov method
         if (is_cov) {
-            ElnetPathCov elnet_path;
+            ElnetPath<glm, mode_t::cov> elnet_path;
             elnet_path.fit(
                     parm, ju, vq, cl, g, ne, nx, x, nlam, flmin, vlam, thr, maxit, xv,
                     lmu, ca, ia, nin, rsq, alm, nlp, jerr, int_param);

@@ -7,12 +7,25 @@ namespace frisk {
 /* 
  * Gaussian covariance method elastic net path-solver.
  */
-struct ElnetPathCov
+template <class ElnetPointPolicy>
+struct ElnetPath<
+    util::glm_type::gaussian,
+    util::mode_type<util::glm_type::gaussian>::cov,
+    ElnetPointPolicy>
         : ElnetPathGaussianBase
+        , ElnetPathCRTPBase<
+            ElnetPath<
+                util::glm_type::gaussian,
+                util::mode_type<util::glm_type::gaussian>::cov,
+                ElnetPointPolicy> >
 {
 private:
     using base_t = ElnetPathGaussianBase;
-    using elnet_point_t = ElnetPoint<util::glm_type::gaussian, util::mode_type<util::glm_type::gaussian>::cov>;
+    using crtp_base_t = ElnetPathCRTPBase<
+            ElnetPath<util::glm_type::gaussian,
+                      util::mode_type<util::glm_type::gaussian>::cov,
+                      ElnetPointPolicy> >;
+    using elnet_point_t = ElnetPointPolicy;
 
     struct FitPackCov {
         using sub_pack_t = typename base_t::FitPackGsBase;
@@ -67,55 +80,7 @@ public:
             // add new members
             g
         };
-        fit(pack);
-    }
-
-    void fit(const FitPackCov& pack) const
-    {
-        using value_t = double;
-        using int_t = int;
-
-        auto& jerr = pack.err_code();
-
-        try {
-            PathConfigPackBase&& path_config_pack = initialize_path(pack);
-
-            auto&& elnet_point = get_elnet_point(pack, path_config_pack);
-
-            value_t lmda_curr = 0; // this makes the math work out in the point solver
-
-            for (int_t m = 0; m < pack.path_size(); ++m) {
-
-                auto&& point_config_pack =
-                    initialize_point(m, lmda_curr, pack, path_config_pack, elnet_point);
-
-                try {
-                    elnet_point.fit(point_config_pack);
-                }
-                catch (const util::maxit_reached_error& e) {
-                    jerr = e.err_code(m);
-                    return;
-                }
-                catch (const util::bnorm_maxit_reached_error& e) {
-                    jerr = e.err_code(m);
-                    return;
-                }
-                catch (const util::elnet_error& e) {
-                    jerr = e.err_code(m);
-                    break;
-                }
-
-                state_t state = process_point_fit(pack, path_config_pack, point_config_pack, elnet_point);
-
-                if (state == state_t::continue_) continue;
-                if (state == state_t::break_) break;
-            }
-
-            process_path_fit(pack, elnet_point);
-        }
-        catch (const util::elnet_error& e) {
-            jerr = e.err_code(0);
-        }
+        crtp_base_t::fit(pack);
     }
 
     /*
@@ -123,7 +88,8 @@ public:
      *
      * @param   pack        object of FitPack of the current class.
      */
-    elnet_point_t get_elnet_point(const FitPackCov& pack, const PathConfigPackBase&) const
+    template <class FitPackType, class PathConfigPackType>
+    auto get_elnet_point(const FitPackType& pack, const PathConfigPackType&) const
     {
         auto& sp = pack.sub_pack;
         auto& ssp = sp.sub_pack;
@@ -132,19 +98,23 @@ public:
                 sp.xv, ssp.vp, ssp.cl, ssp.ju);
     }
 
-    PathConfigPackBase initialize_path(const FitPackCov& pack) const
+    template <class FitPackType>
+    auto initialize_path(const FitPackType& pack) const
     {
         return ElnetPathGaussianBase::initialize_path(pack.sub_pack);
     }
 
+    template <class FitPackType
+        , class PathConfigPackType
+        , class ElnetPointType>
     PointConfigPackBase initialize_point(
             int m, 
             double& lmda_curr,
-            const FitPackCov& pack,
-            const PathConfigPackBase& path_pack,
-            const elnet_point_t&) const
+            const FitPackType& pack,
+            const PathConfigPackType& path_pack,
+            const ElnetPointType&) const
     {
-        return ElnetPathGaussianBase::initialize_point(m, lmda_curr, pack.sub_pack, path_pack, pack.g);
+        return base_t::initialize_point(m, lmda_curr, pack.sub_pack, path_pack, pack.g);
     }
 
     template <class FitPackType

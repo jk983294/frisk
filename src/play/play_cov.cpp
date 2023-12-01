@@ -68,7 +68,7 @@ int main() {
     std::vector<double> alm_(nlambda, 0.);
     Eigen::Map<Eigen::VectorXd> alm(alm_.data(), alm_.size());
     int nlp = 0, jerr = 0, lmu = 0;
-    net.elnet_exp(true, alpha, X, y, weights, jd, vp, cl,
+    net.elnet_exp(false, alpha, X, y, weights, jd, vp, cl,
                   dfmax, pmax, nlambda, lambda_min_ratio, ulam, thresh, isd, intr, maxit, lmu,
                   a0, ca, ia, nin, rsq, alm, nlp, jerr);
 
