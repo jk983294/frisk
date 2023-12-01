@@ -43,7 +43,7 @@ class ElNetModel(torch.nn.Module):
         train_len = len(dataloader_train)
 
         criterion = torch.nn.MSELoss(reduction="mean")
-        optimizer = torch.optim.SGD(my_model.parameters(), lr=0.01)
+        optimizer = torch.optim.SGD(self.parameters(), lr=0.01)
         for epoch in range(epochs):
             for i, data in enumerate(dataloader_train, 0):
                 # Get inputs
