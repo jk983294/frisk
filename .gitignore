@@ -50,3 +50,4 @@ install/
 **/RcppExports.cpp
 **/RcppExports.R
 build/
+*.bak

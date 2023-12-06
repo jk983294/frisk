@@ -25,19 +25,6 @@ struct is_instance_of
 
 } // namespace details
 
-// Checks if T is an Eigen Dense matrix class.
-// All dense objects inherit from DenseBase
-// per documentation: https://eigen.tuxfamily.org/dox/TopicFunctionTakingEigenTypes.html
-// If T inherits from Eigen::DenseBase<something>,
-// evaluates to true. Otherwise, false.
-// If false, the codebase assumes T is sparse.
-template <class T>
-struct is_dense
-{
-    static constexpr bool value =
-        details::is_instance_of<T, Eigen::DenseBase>::value;
-};
-
 namespace details {
 
 // Helper meta-programming tool to initialize ju correctly.

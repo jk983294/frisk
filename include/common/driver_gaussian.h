@@ -1,16 +1,14 @@
 #pragma once
 #include <common/chkvars.h>
+#include <common/path/path_base.h>
+#include <common/path/path_gaussian_naive.h>
+#include <common/point/internal/pi_gaussian_naive.h>
+#include <common/point/point_gaussian_naive.h>
 #include <common/standardize.h>
 #include <common/type_traits.h>
 #include <common/types.h>
-#include <common/path/path_base.h>
-#include <common/path/path_gaussian_cov.h>
-#include <common/path/path_gaussian_naive.h>
-#include <common/point/internal/pi_gaussian_cov.h>
-#include <common/point/internal/pi_gaussian_naive.h>
-#include <common/point/point_gaussian_cov.h>
-#include <common/point/point_gaussian_naive.h>
 #include <Eigen/Core>
+#include <iostream>
 #include <vector>
 
 namespace frisk {
@@ -18,17 +16,14 @@ namespace frisk {
 struct FitPathGaussian
 {
     static void eval(
-            bool is_cov,
-            double parm,
+            double alpha,
             const Eigen::MatrixXd& x,
             Eigen::VectorXd& y,
             Eigen::VectorXd& g,
             const Eigen::VectorXd& w,
             const std::vector<bool>& ju,
             const Eigen::VectorXd& vq,
-            const Eigen::VectorXd& xm,
-            const Eigen::VectorXd& xs,
-            const Eigen::VectorXd& xv,
+            const Eigen::VectorXd& x_var,
             const Eigen::MatrixXd& cl,
             int ne,
             int nx,
@@ -36,8 +31,6 @@ struct FitPathGaussian
             double flmin,
             const Eigen::VectorXd& vlam,
             double thr,
-            bool isd,
-            bool intr,
             int maxit,
             int& lmu,
             Eigen::Map<Eigen::VectorXd>& a0,
@@ -51,21 +44,10 @@ struct FitPathGaussian
             InternalParams int_param
             )
     {
-        constexpr util::glm_type glm = util::glm_type::gaussian;
-        using mode_t = util::mode_type<glm>;
-
-        // cov method
-        if (is_cov) {
-            ElnetPath<glm, mode_t::cov> elnet_path;
-            elnet_path.fit(
-                    parm, ju, vq, cl, g, ne, nx, x, nlam, flmin, vlam, thr, maxit, xv,
-                    lmu, ca, ia, nin, rsq, alm, nlp, jerr, int_param);
-        }
         // naive method
-        else {
-            ElnetPath<glm, mode_t::naive> elnet_path;
-            elnet_path.fit(
-                    parm, ju, vq, cl, y, ne, nx, x, nlam, flmin, vlam, thr, maxit, xv,
+        {
+            ElnetPath elnet_path;
+            elnet_path.fit(alpha, ju, vq, cl, y, ne, nx, x, nlam, flmin, vlam, thr, maxit, x_var,
                     lmu, ca, ia, nin, rsq, alm, nlp, jerr, int_param);
         }
     }
@@ -73,20 +55,13 @@ struct FitPathGaussian
 
 struct ElnetDriverBase
 {
-    template <class VType>
-    void normalize_penalty(VType&& vq) const {
+    void normalize_penalty(Eigen::VectorXd& vq) const {
         if (vq.maxCoeff() <= 0) throw util::non_positive_penalty_error();
-        vq.array() = vq.array().max(0.0);
+        vq.array() = vq.array().max(0.0); // truncate those < 0 to 0
         vq *= vq.size() / vq.sum();
     }
 
-    template <class JDType, class JUType>
-    void init_inclusion(const JDType& jd, JUType&& ju) const {
-        if (jd(0) > 0) {
-            for (int i = 1; i < jd(0) + 1; ++i) {
-                ju[jd(i)-1] = false;
-            }
-        }
+    void init_inclusion(std::vector<bool>& ju) const {
         // can't find true value in ju
         if (std::find_if(ju.begin(), ju.end(), [](auto x) { return x;}) == ju.end()) {
             throw util::all_excluded_error();
@@ -94,26 +69,17 @@ struct ElnetDriverBase
     }
 };
 
-template <util::glm_type glm>
 struct ElnetDriver;
 
-template <>
-struct ElnetDriver<util::glm_type::gaussian>
+struct ElnetDriver
     : ElnetDriverBase
 {
-private:
-    static constexpr util::glm_type glm = util::glm_type::gaussian;
-    using mode_t = util::mode_type<glm>;
-
 public:
-
     void fit(
-        bool is_cov,
-        double parm,
+        double alpha_,
         Eigen::MatrixXd& x,
         Eigen::VectorXd& y,
         Eigen::VectorXd& w,
-        const Eigen::Map<Eigen::VectorXi>& jd,
         const Eigen::Map<Eigen::VectorXd>& vp,
         Eigen::MatrixXd& cl,
         int ne,
@@ -138,70 +104,75 @@ public:
     ) const
     {
         using chkvars_t = Chkvars;
-        using standardize_cov_t = Standardize;
         using standardize_naive_t = Standardize1;
 
         try {
-            Eigen::VectorXd vq = vp;
-            this->normalize_penalty(vq);
+            Eigen::VectorXd vq = vp; // normalized penalty
+            normalize_penalty(vq);
+            // std::cout << "normalized penalty: " << vq << std::endl;
 
-            auto ni = x.cols();
+            auto nvars = x.cols();
 
-            Eigen::VectorXd g;            // only naive version uses it
-            Eigen::VectorXd xm(ni); xm.setZero();
-            Eigen::VectorXd xs(ni); xs.setZero();
-            Eigen::VectorXd xv(ni); xv.setZero();
+            Eigen::VectorXd g;
+            Eigen::VectorXd x_mean(nvars);
+            x_mean.setZero(); // x mean
+            Eigen::VectorXd x_sd(nvars);
+            x_sd.setZero(); // x sd
+            Eigen::VectorXd x_var(nvars);
+            x_var.setZero(); // x variance
             Eigen::VectorXd vlam(nlam); vlam.setZero();
-            std::vector<bool> ju(ni, false);
+            std::vector<bool> ju(nvars, false);
 
             chkvars_t::eval(x, ju);
-            this->init_inclusion(jd, ju);
+            init_inclusion(ju);
 
-            double ym = 0;
-            double ys = 0;
+            double y_mean = 0; // y mean
+            double y_sd = 0; // y sd
 
-            // cov method
-            if (is_cov) {
-                g.setZero(ni);
-                standardize_cov_t::eval(x, y, w, isd, intr, ju, g, xm, xs, ym, ys, xv);
-            }
+            // naive method
+            standardize_naive_t::eval(x, y, w, isd, intr, ju, x_mean, x_sd, y_mean, y_sd, x_var);
 
-                // naive method
-            else {
-                standardize_naive_t::eval(x, y, w, isd, intr, ju, xm, xs, ym, ys, xv);
-            }
-
-            cl /= ys;
+            cl /= y_sd;
             if (isd) {
-                for (int j = 0; j < ni; ++j) {
-                    cl.col(j) *= xs(j);
+                for (int j = 0; j < nvars; ++j) {
+                    cl.col(j) *= x_sd(j);
                 }
             }
 
-            if (flmin >= 1.0) vlam = ulam / ys;
+            if (flmin >= 1.0) vlam = ulam / y_sd;
 
-            FitPathGaussian::eval(
-                is_cov, parm, x, y, g, w, ju, vq, xm, xs, xv, cl, ne, nx,
-                nlam, flmin, vlam, thr, isd, intr, maxit,
+//            std::cout << "cl:\n" << cl << std::endl;
+//            std::cout << "vlam:\n" << vlam << std::endl;
+
+            FitPathGaussian::eval(alpha_, x, y, g, w, ju, vq, x_var, cl, ne, nx,
+                nlam, flmin, vlam, thr, maxit,
                 lmu, a0, ca, ia, nin, rsq, alm, nlp, jerr, int_param
             );
 
             if (jerr > 0) return;
 
             for (int k = 0; k < lmu; ++k) {
-                alm(k) *= ys;
+                alm(k) *= y_sd;
                 auto nk = nin(k);
                 for (int l = 0; l < nk; ++l) {
-                    ca(l,k) *= ys / xs(ia(l)-1);
+                    ca(l,k) *= y_sd / x_sd(ia(l)-1);
                 }
                 a0(k)=0.0;
                 if (intr) {
                     for (int i = 0; i < nk; ++i) {
-                        a0(k) -= ca(i, k) * xm(ia(i)-1);
+                        a0(k) -= ca(i, k) * x_mean(ia(i)-1);
                     }
-                    a0(k) += ym;
+                    a0(k) += y_mean;
                 }
             }
+//            std::cout << "nin:\n" << nin.size() << std::endl << nin << std::endl;
+//            std::cout << "ia:\n" << ia.size() << std::endl << ia << std::endl;
+//            std::cout << "alm:\n" << alm.size() << std::endl << alm << std::endl;
+//            std::cout << "ulam:\n" << ulam.size() << std::endl << ulam << std::endl;
+//            std::cout << "a0:\n" << a0.size() << std::endl << a0 << std::endl;
+//            std::cout << "rsq:\n" << rsq.size() << std::endl << rsq << std::endl;
+//            std::cout << "ca:\n" << ca.rows() << " * " << ca.cols()  << std::endl << ca << std::endl;
+//            std::cout << "lmu:\n" << lmu << std::endl;
         }
         catch (const util::elnet_error& e) {
             jerr = e.err_code(0);

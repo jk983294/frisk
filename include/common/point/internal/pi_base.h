@@ -12,7 +12,6 @@ namespace frisk {
 /*
  * Base class for all static interface
  */
-template <class ValueType, class IndexType>
 struct ElnetPointInternalStaticBase
 {
 protected:
@@ -224,14 +223,12 @@ public:
  * Base class for internal implementation of any GLM elastic-net point solver.
  * This only views resources and doesn't allocate expensive data structures.
  */
-template <class ValueType
-        , class IndexType
-        , class BoolType>
+
 struct ElnetPointInternalBaseViewer
-    : ElnetPointInternalStaticBase<ValueType, IndexType>
+    : ElnetPointInternalStaticBase
 {
 private:
-    using base_t = ElnetPointInternalStaticBase<ValueType, IndexType>;
+    using base_t = ElnetPointInternalStaticBase;
 
 public:
     using typename base_t::value_t;
@@ -345,14 +342,12 @@ private:
     ju_t ju_;                           // exclusion type
 };
 
-template <class ValueType
-        , class IndexType
-        , class BoolType>
+
 struct ElnetPointInternalBase
-    : ElnetPointInternalBaseViewer<ValueType, IndexType, BoolType>
+    : ElnetPointInternalBaseViewer
 {
 private:
-    using base_t = ElnetPointInternalBaseViewer<ValueType, IndexType, BoolType>;
+    using base_t = ElnetPointInternalBaseViewer;
 
 protected:
     using typename base_t::value_t;

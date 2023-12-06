@@ -4,50 +4,27 @@
 
 namespace frisk {
 
-template <class ValueType
-        , class IndexType
-        , class BoolType>
-struct ElnetPointInternal<
-    util::glm_type::gaussian,
-    util::mode_type<util::glm_type::gaussian>::naive,
-    ValueType,
-    IndexType,
-    BoolType>
-        : ElnetPointInternalGaussianNaiveBase<
-            ValueType, IndexType, BoolType>
+struct ElnetPointInternal
+        : ElnetPointInternalGaussianNaiveBase
 {
 private:
-    using base_t = ElnetPointInternalGaussianNaiveBase<
-            ValueType, IndexType, BoolType>;
+    using base_t = ElnetPointInternalGaussianNaiveBase;
 
 public:
     using typename base_t::value_t;
     using typename base_t::index_t;
 
-    template <class IAType
-            , class YType
-            , class XType
-            , class XVType
-            , class VPType
-            , class CLType
-            , class JUType>
-    ElnetPointInternal(value_t thr,
-                       index_t maxit,
-                       index_t nx,
-                       index_t& nlp,
-                       IAType& ia,
-                       YType& y,
-                       const XType& X,
-                       const XVType& xv,
-                       const VPType& vp,
-                       const CLType& cl,
-                       const JUType& ju)
-        : base_t(thr, maxit, nx, nlp, ia, xv, vp, cl, ju)
-        , X_(X.data(), X.rows(), X.cols())
-        , y_(y.data(), y.size())
-    {
-        base_t::construct([this](index_t k) { return compute_abs_grad(k); });
-    }
+    ElnetPointInternal(double thr,
+                       int maxit,
+                       int nx,
+                       int& nlp,
+                       Eigen::Map<Eigen::VectorXi>& ia,
+                       Eigen::VectorXd& y,
+                       const Eigen::MatrixXd& X,
+                       const Eigen::VectorXd& xv,
+                       const Eigen::VectorXd& vp,
+                       const Eigen::MatrixXd& cl,
+                       const std::vector<bool>& ju);
 
     template <class PointPackType>
     GLMNETPP_STRONG_INLINE

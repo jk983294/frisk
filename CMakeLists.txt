@@ -29,6 +29,8 @@ SET(CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS)
 
 include_directories(include)
 include_directories(SYSTEM /opt/3rd/Eigen)
+include_directories(SYSTEM /opt/version/latest/ornate/include/)
+
 link_directories(/usr/local/lib/)
 
 add_subdirectory(src/common)

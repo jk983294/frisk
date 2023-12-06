@@ -1,4 +1,4 @@
-file(GLOB CommonSrc *.cpp)
+file(GLOB CommonSrc *.cpp path/*.cpp point/*.cpp point/internal/*.cpp)
 
 add_library(frisk_common STATIC ${CommonSrc})
 target_link_libraries( frisk_common ${OpenMP_CXX_LIBRARIES} pthread )

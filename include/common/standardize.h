@@ -19,7 +19,7 @@ struct Standardize1
         double& ys,
         Eigen::VectorXd& xv)
     {
-        auto ni = x.cols();
+        auto nvars = x.cols();
 
         w /= w.sum();
 
@@ -31,10 +31,10 @@ struct Standardize1
             ym = 0.0;
             y.array() *= v.array();
 
-            // trevor changed 3/24/2020
+            // trevor
             ys = y.norm(); 
             y /= ys;
-            for (int j = 0; j < ni; ++j) {
+            for (int j = 0; j < nvars; ++j) {
                 if (!ju[j]) continue; 
                 xm(j) = 0.0; 
                 auto x_j = x.col(j);
@@ -56,7 +56,7 @@ struct Standardize1
         // with intercept
         else {
 
-            for (int j = 0; j < ni; ++j) {
+            for (int j = 0; j < nvars; ++j) {
                 if (!ju[j]) continue;
                 auto x_j = x.col(j);
                 xm(j) = x_j.dot(w); 
@@ -66,7 +66,7 @@ struct Standardize1
             }
             if (!isd) { xs.setOnes(); }
             else {
-                 for (int j = 0; j < ni; ++j) {
+                 for (int j = 0; j < nvars; ++j) {
                      if (!ju[j]) continue; 
                      auto x_j = x.col(j);
                      x_j /= xs(j);
@@ -77,31 +77,6 @@ struct Standardize1
             y.array() = v.array() * (y.array() - ym); 
             ys = y.norm(); 
             y /= ys;
-        }
-    }
-};
-
-struct Standardize
-{
-    static void eval(
-        Eigen::MatrixXd& x,
-        Eigen::VectorXd& y,
-        Eigen::VectorXd& w,
-        bool isd, 
-        bool intr, 
-        const std::vector<bool>& ju,
-        Eigen::VectorXd& g,
-        Eigen::VectorXd& xm,
-        Eigen::VectorXd& xs,
-        double& ym,
-        double& ys,
-        Eigen::VectorXd& xv)
-    {
-        auto ni = x.cols();
-        Standardize1::eval(x, y, w, isd, intr, ju, xm, xs, ym, ys, xv);
-        g.setZero(); 
-        for (int j = 0; j < ni; ++j) {
-            if (ju[j]) g(j) = x.col(j).dot(y);
         }
     }
 };

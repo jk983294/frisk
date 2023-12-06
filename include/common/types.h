@@ -5,6 +5,9 @@
 
 namespace frisk {
 
+using ValueType = double;
+using IndexType = int;
+using BoolType = bool;
 
 struct InternalParams
 {
@@ -21,23 +24,6 @@ struct InternalParams
 };
 
 namespace util {
-enum class glm_type { gaussian };
-
-// A struct that defines the enum class of mode types
-// for a specific glm.
-template <glm_type glm>
-struct Mode;
-
-// Specializations
-template <>
-struct Mode<glm_type::gaussian> {
-    enum class type { naive, cov };
-};
-
-// Helper alias to get the mode enum class type for each glm.
-template <glm_type glm>
-using mode_type = typename Mode<glm>::type;
-
 // Represents a state of a function as a way for the caller to do control flow.
 enum class control_flow
 {

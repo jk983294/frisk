@@ -1,22 +1,19 @@
 #pragma once
 #include <common/path/path_decl.h>
 #include <common/path/path_gaussian_base.h>
+#include <common/point/point_gaussian_naive.h>
 
 namespace frisk {
 
 /* 
  * Gaussian naive method elastic net path-solver.
  */
-template <class ElnetPointPolicy>
-struct ElnetPath<
-    util::glm_type::gaussian,
-    util::mode_type<util::glm_type::gaussian>::naive,
-    ElnetPointPolicy>
+struct ElnetPath
         : ElnetPathGaussianBase
 {
 private:
     using base_t = ElnetPathGaussianBase;
-    using elnet_point_t = ElnetPointPolicy;
+    using elnet_point_t = ElnetPoint;
 
     struct FitPack
     {
@@ -48,7 +45,7 @@ public:
         const Eigen::VectorXd& ulam,
         double thr,
         int maxit,
-        const Eigen::VectorXd& xv,
+        const Eigen::VectorXd& x_var,
         int& lmu,
         Eigen::Map<Eigen::MatrixXd>& ao,
         Eigen::Map<Eigen::VectorXi>& ia,
@@ -67,7 +64,7 @@ public:
                 {beta, ju, vp, cl, ne, nx, x, nlam, flmin,
                  ulam, thr, maxit, lmu, ao, ia, kin, almo, nlp, jerr, int_param},
                 // add new members
-                xv, rsqo
+             x_var, rsqo
             }, 
             // add new members
             y
@@ -75,82 +72,21 @@ public:
         fit(pack);
     }
 
+    void fit(const FitPack& pack) const;
 
-    void fit(const FitPack& pack) const
+    ElnetPoint get_elnet_point(const FitPack& pack, const PathConfigPackBase&) const;
+
+    PathConfigPackBase initialize_path(const FitPack& pack) const
     {
-        using value_t = double;
-        using int_t = int;
-
-        auto& jerr = pack.err_code();
-
-        try {
-            auto&& path_config_pack = initialize_path(pack);
-
-            auto&& elnet_point = get_elnet_point(pack, path_config_pack);
-
-            value_t lmda_curr = 0; // this makes the math work out in the point solver
-
-            for (int_t m = 0; m < pack.path_size(); ++m) {
-
-                PointConfigPackBase&& point_config_pack =
-                    initialize_point(m, lmda_curr, pack, path_config_pack, elnet_point);
-
-                try {
-                    elnet_point.fit(point_config_pack);
-                }
-                catch (const util::maxit_reached_error& e) {
-                    jerr = e.err_code(m);
-                    return;
-                }
-                catch (const util::bnorm_maxit_reached_error& e) {
-                    jerr = e.err_code(m);
-                    return;
-                }
-                catch (const util::elnet_error& e) {
-                    jerr = e.err_code(m);
-                    break;
-                }
-
-                state_t state = process_point_fit(pack, path_config_pack, point_config_pack, elnet_point);
-
-                if (state == state_t::continue_) continue;
-                if (state == state_t::break_) break;
-            }
-
-            process_path_fit(pack, elnet_point);
-        }
-        catch (const util::elnet_error& e) {
-            jerr = e.err_code(0);
-        }
+        return ElnetPathGaussianBase::initialize_path(pack.sub_pack);
     }
 
-
-
-    template <class FitPackType, class PathConfigPackType>
-    auto get_elnet_point(const FitPackType& pack, const PathConfigPackType&) const 
-    {
-        auto& sp = pack.sub_pack;
-        auto& ssp = sp.sub_pack;
-        return elnet_point_t(
-                ssp.thr, ssp.maxit, ssp.nx, ssp.nlp, ssp.ia, pack.y, ssp.x, 
-                sp.xv, ssp.vp, ssp.cl, ssp.ju);
-    }
-
-    template <class FitPackType>
-    auto initialize_path(const FitPackType& pack) const 
-    {
-        return base_t::initialize_path(pack.sub_pack);
-    }
-
-    template <class FitPackType
-            , class PathConfigPackType
-            , class ElnetPointType>
     PointConfigPackBase initialize_point(
         int m,
         double& lmda_curr,
-            const FitPackType& pack, 
-            const PathConfigPackType& path_pack,
-            const ElnetPointType& elnet_point) const
+            const FitPack& pack,
+            const PathConfigPackBase& path_pack,
+            const ElnetPoint& elnet_point) const
     {
         return base_t::initialize_point(m, lmda_curr, pack.sub_pack, path_pack, elnet_point.abs_grad());
     }
