@@ -29,4 +29,4 @@ coef(model, s=0.1)
 system.time({ model <- glmnet(x, y, type.measure="mse", alpha = 0.5, family="gaussian") })
 predicted <- predict(model, newx=x)
 (mse <- mean((y - predicted)^2))
-
+FM::pcor(y, predicted)

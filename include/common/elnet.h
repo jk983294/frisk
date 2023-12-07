@@ -31,32 +31,25 @@ struct ElNet {
              int max_iter = 100000, int max_features = -1,
              std::vector<double> lower_limits = {}, std::vector<double> upper_limits = {});
 
-    Eigen::VectorXd predit(Eigen::MatrixXd newx, double s = NAN);
+    Eigen::VectorXd predict(const Eigen::Map<const Eigen::MatrixXd>& newx, double s = NAN);
     std::vector<double> get_lambdas();
+    int get_lambda_min() const { return m_lambda_min; }
+    int get_lambda_se() const { return m_lambda_se; }
 
 private:
     void elnet_exp(
         double parm, // alpha
         Eigen::MatrixXd& x,
         Eigen::VectorXd& y,
-        Eigen::VectorXd& w,
-        const Eigen::Map<Eigen::VectorXd>& vp, // vp=as.double(penalty.factor)
         Eigen::MatrixXd& cl, // cl=rbind(lower.limits, upper.limits)
         int ne, // as.integer(dfmax)
         int nx, // as.integer(pmax)
         int nlam, // as.integer(length(lambda))
         double flmin, // as.double(lambda.min.ratio)
-        const Eigen::Map<Eigen::VectorXd>& ulam, // ulam=as.double(rev(sort(lambda)))
         double thr, // Convergence threshold for coordinate descent, default 1E-7
         bool isd, // Logical flag for x variable standardization, default true
         bool intr, // intercept
-        int maxit, // Maximum number of passes over the data for all lambda values, default is 10^5.
-        Eigen::Map<Eigen::VectorXd>& a0, // double(nlam)
-        Eigen::Map<Eigen::MatrixXd>& ca, // matrix(0.0, nrow=nx, ncol=nlam),
-        Eigen::Map<Eigen::VectorXi>& ia, // integer(nx),
-        Eigen::Map<Eigen::VectorXi>& nin, // integer(nlam),
-        Eigen::Map<Eigen::VectorXd>& rsq, // double(nlam),
-        Eigen::Map<Eigen::VectorXd>& alm // double(nlam),
+        int maxit // Maximum number of passes over the data for all lambda values, default is 10^5.
     );
 
 public:
@@ -71,6 +64,8 @@ public:
     int jerr = 0; // Error flag
     int lmu = 0; // valid model number
     int pmax = 0, m_nlambda = 0;
+    int m_lambda_min{-1};
+    int m_lambda_se{-1};
 };
 }
 

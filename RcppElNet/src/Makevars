@@ -1,0 +1,7 @@
+CXX_STD = CXX17
+
+NLNET_LIBS = -L/opt/version/latest/frisk/lib/ -lfrisk_common
+
+CXXFLAGS=-O3 -fopenmp
+PKG_CXXFLAGS = $(SHLIB_OPENMP_CXXFLAGS) -I/opt/version/latest/frisk/include/
+PKG_LIBS = $(SHLIB_OPENMP_CXXFLAGS) $(NLNET_LIBS)

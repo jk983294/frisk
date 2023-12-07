@@ -28,6 +28,15 @@ int main() {
     }
 
     cout << X << endl;
+    double* px = X.data();
+
+    cout << "check if col major:" << endl;
+    for (int i = 0; i < nobs; ++i) {
+        for (int j = 0; j < nvars; ++j) {
+            cout << px[i * nvars + j] << "  ";
+        }
+        cout << endl;
+    }
 //    cout << y << endl;
 
     Eigen::VectorXd w(nobs, 1);

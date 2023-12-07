@@ -2,18 +2,19 @@
 #include <common/elnet.h>
 #include <Eigen/Dense>
 #include <random>
+#include <chrono>
 #include <math_stats.h>
 
 using namespace std;
 using namespace frisk;
-
+using namespace std::chrono;
 
 int main() {
     ElNet net;
 
-    int nobs = 100;  // Number of observations
-    int nvars = 10;  // Number of predictors included in model
-    int real_vars = 5;  // Number of true predictors
+    int nobs = 100000;  // Number of observations
+    int nvars = 20;  // Number of predictors included in model
+    int real_vars = 6;  // Number of true predictors
     Eigen::MatrixXd X(nobs, nvars);
     Eigen::VectorXd y(nobs);
 
@@ -29,7 +30,7 @@ int main() {
             X(i, j) = rv;
             if (j < real_vars) sum_ += rv;
         }
-        y(i) = sum_;
+        y(i) = sum_ + uid(generator);
     }
 
     Eigen::MatrixXd cl(2, nvars);
@@ -38,15 +39,17 @@ int main() {
         cl(1, k) = INFINITY;
     }
 
+    steady_clock::time_point start = steady_clock::now();
     net.fit(X, y, 0.5);
+    steady_clock::time_point end = steady_clock::now();
+    cout << "took " << nanoseconds{end - start}.count() / 1000 / 1000 << " ms." << endl;
 
     if (net.lmu < 1) {
         printf("an empty model has been returned; probably a convergence issue!");
     }
-    int ninmax = *std::max_element(net.nin_.begin(), net.nin_.end());
-    printf("%d\n", ninmax);
 
-    auto fitted = net.predit(X);
+    Eigen::Map<Eigen::MatrixXd> mx(X.data(), X.rows(), X.cols());
+    auto fitted = net.predict(mx);
     const Eigen::VectorXd& residual = y - fitted;
     Eigen::VectorXd ytot = y.array() - y.array().mean();
     double r_squared = 1 - residual.dot(residual) / ytot.dot(ytot);
