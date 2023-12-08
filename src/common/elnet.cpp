@@ -4,6 +4,8 @@
 
 using namespace std::chrono;
 
+//#define DEBUG_VERBOSE_ 1
+
 namespace frisk {
 
 void ElNet::elnet_exp(
@@ -61,7 +63,9 @@ void ElNet::fit1(const double* px, const double* py, long nobs, int nvars, doubl
                 const double* p_lambda_path, int lambda_path_len,
                 bool standardize, bool fit_intercept,
                 int maxit, int max_features) {
+#ifdef DEBUG_VERBOSE_
     steady_clock::time_point start = steady_clock::now();
+#endif
 
     double tolerance = 1e-7;
     double lambda_min_ratio = 1e-4;
@@ -100,19 +104,25 @@ void ElNet::fit1(const double* px, const double* py, long nobs, int nvars, doubl
     rsq_ = std::vector<double>(nlambda, 0.);
     alm_ = std::vector<double>(nlambda, 0.);
 
+#ifdef DEBUG_VERBOSE_
     steady_clock::time_point end = steady_clock::now();
     std::cout << "took " << nanoseconds{end - start}.count() / 1000 / 1000 << " ms." << std::endl;
+#endif
     Eigen::MatrixXd X(nobs, nvars);
     Eigen::VectorXd y(nobs);
     std::copy(px, px + nobs * nvars, X.data());
     std::copy(py, py + nobs, y.data());
+#ifdef DEBUG_VERBOSE_
     steady_clock::time_point end1 = steady_clock::now();
     std::cout << "took " << nanoseconds{end1 - end}.count() / 1000 / 1000 << " ms." << std::endl;
+#endif
 
     elnet_exp(alpha, X, y, cl,
               max_features, pmax, nlambda, lambda_min_ratio, tolerance, standardize, fit_intercept, maxit);
+#ifdef DEBUG_VERBOSE_
     steady_clock::time_point end2 = steady_clock::now();
     std::cout << "took " << nanoseconds{end2 - end1}.count() / 1000 / 1000 << " ms." << std::endl;
+#endif
 }
 
 void ElNet::fit(Eigen::MatrixXd X, Eigen::VectorXd y, double alpha, int nlambda, double lambda_min_ratio,
@@ -122,6 +132,16 @@ void ElNet::fit(Eigen::MatrixXd X, Eigen::VectorXd y, double alpha, int nlambda,
          std::vector<double> lower_limits, std::vector<double> upper_limits) {
     long nobs = X.rows();
     int nvars = X.cols();
+
+//    if (nobs > 100000) {
+//        int threads = 20;
+//        if (threads > omp_get_max_threads()) threads = omp_get_max_threads();
+//        Eigen::setNbThreads(threads);
+//#ifdef DEBUG_VERBOSE_
+//        printf("fit use thread=%d\n", threads);
+//#endif
+//    }
+
     if (max_features <= 0 || max_features > nvars + 1) max_features = nvars + 1;
     pmax = std::min(max_features * 2 + 20, nvars); // Limit the maximum number of variables ever to be nonzero
     if (lambda_path.empty()) {
@@ -160,8 +180,14 @@ void ElNet::fit(Eigen::MatrixXd X, Eigen::VectorXd y, double alpha, int nlambda,
               max_features, pmax, nlambda, lambda_min_ratio, tolerance, standardize, fit_intercept, maxit);
 }
 
-Eigen::VectorXd ElNet::predict(const Eigen::Map<const Eigen::MatrixXd>& newx, double s) {
-    if (lmu < 1) return {};
+Eigen::VectorXd ElNet::get_coef(double& intercept, double s) {
+    Eigen::VectorXd coefs(ia_.size());
+    coefs.setZero();
+    if (lmu < 1) {
+        intercept = NAN;
+        std::fill(coefs.data(), coefs.data() + ia_.size(), NAN);
+        return coefs;
+    }
     int _idx = m_lambda_se;
     if (std::isfinite(s)) {
         for (_idx = 0; _idx < lmu; ++_idx) {
@@ -183,12 +209,18 @@ Eigen::VectorXd ElNet::predict(const Eigen::Map<const Eigen::MatrixXd>& newx, do
     Eigen::VectorXd coef_ca = ca_map.block(0, 0, ninmax, lmu).col(_idx);
 //    std::cout << "coef_ca:\n" << coef_ca << std::endl;
 
-    double intercept = a0_[_idx];
-    Eigen::VectorXd coefs(ia_.size());
-    coefs.setZero();
+    intercept = a0_[_idx];
     for (int k = 0; k < ninmax; ++k) {
         coefs(ia_[k] - 1) = coef_ca(k);
     }
+    return coefs;
+}
+
+Eigen::VectorXd ElNet::predict(const Eigen::Map<const Eigen::MatrixXd>& newx, double s) {
+    double intercept = NAN;
+    get_coef(intercept, s);
+    Eigen::VectorXd coefs = get_coef(intercept, s);
+    if (std::isnan(intercept)) return {};
     return (newx * coefs).array() + intercept;
 }
 

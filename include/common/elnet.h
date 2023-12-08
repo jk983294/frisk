@@ -37,6 +37,7 @@ struct ElNet {
              int max_iter = 100000, int max_features = -1);
 
     Eigen::VectorXd predict(const Eigen::Map<const Eigen::MatrixXd>& newx, double s = NAN);
+    Eigen::VectorXd get_coef(double& intercept, double s = NAN);
     std::vector<double> get_lambdas();
     int get_lambda_min() const { return m_lambda_min; }
     int get_lambda_se() const { return m_lambda_se; }
