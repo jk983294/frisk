@@ -47,9 +47,9 @@ PYBIND11_MODULE(pyelnet, m) {
 
     py::class_<PyElNet>(m, "PyElNet")
         .def(py::init<>())
-        .def("fit", &PyElNet::py_fit, py::arg("x"), py::arg("y"), py::arg("alpha") = 1.0,
+        .def("fit", &PyElNet::py_fit, py::arg("x").noconvert(), py::arg("y").noconvert(), py::arg("alpha") = 1.0,
              py::arg("n_lambda") = 100, py::arg("lambda_path") = std::vector<double>(), py::arg("standardize") = true,
              py::arg("fit_intercept") = true, py::arg("max_iter") = 100000, py::arg("max_features") = -1)
-        .def("predict", &PyElNet::py_predict, py::arg("newx"), py::arg("s") = NAN)
+        .def("predict", &PyElNet::py_predict, py::arg("newx").noconvert(), py::arg("s") = NAN)
         ;
 }

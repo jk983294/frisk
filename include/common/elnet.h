@@ -31,6 +31,11 @@ struct ElNet {
              int max_iter = 100000, int max_features = -1,
              std::vector<double> lower_limits = {}, std::vector<double> upper_limits = {});
 
+    void fit1(const double* x, const double* y, long nobs, int nvars, double alpha = 1., int n_lambda = 100,
+             const double* lambda_path= nullptr, int lambda_path_len = 0,
+             bool standardize = true, bool fit_intercept= true,
+             int max_iter = 100000, int max_features = -1);
+
     Eigen::VectorXd predict(const Eigen::Map<const Eigen::MatrixXd>& newx, double s = NAN);
     std::vector<double> get_lambdas();
     int get_lambda_min() const { return m_lambda_min; }

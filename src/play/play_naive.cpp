@@ -15,8 +15,18 @@ int main() {
     int nobs = 100000;  // Number of observations
     int nvars = 20;  // Number of predictors included in model
     int real_vars = 6;  // Number of true predictors
-    Eigen::MatrixXd X(nobs, nvars);
-    Eigen::VectorXd y(nobs);
+
+    steady_clock::time_point start = steady_clock::now();
+    Eigen::MatrixXd X1(nobs, nvars);
+    Eigen::VectorXd y1(nobs);
+    steady_clock::time_point end = steady_clock::now();
+    cout << "took " << nanoseconds{end - start}.count() / 1000 / 1000 << " ms." << endl;
+
+    start = steady_clock::now();
+    Eigen::MatrixXd X = X1;
+    Eigen::VectorXd y = y1;
+    end = steady_clock::now();
+    cout << "took " << nanoseconds{end - start}.count() / 1000 / 1000 << " ms." << endl;
 
     random_device rd;
     // mt19937 generator(rd());
@@ -39,16 +49,16 @@ int main() {
         cl(1, k) = INFINITY;
     }
 
-    steady_clock::time_point start = steady_clock::now();
+    start = steady_clock::now();
     net.fit(X, y, 0.5);
-    steady_clock::time_point end = steady_clock::now();
+    end = steady_clock::now();
     cout << "took " << nanoseconds{end - start}.count() / 1000 / 1000 << " ms." << endl;
 
     if (net.lmu < 1) {
         printf("an empty model has been returned; probably a convergence issue!");
     }
 
-    Eigen::Map<Eigen::MatrixXd> mx(X.data(), X.rows(), X.cols());
+    Eigen::Map<const Eigen::MatrixXd> mx(X.data(), X.rows(), X.cols());
     auto fitted = net.predict(mx);
     const Eigen::VectorXd& residual = y - fitted;
     Eigen::VectorXd ytot = y.array() - y.array().mean();

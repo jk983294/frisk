@@ -46,5 +46,6 @@ Eigen::VectorXd model_predict(List model, Eigen::Map<Eigen::MatrixXd> newx, doub
     net.m_nlambda = as<int>(model["nlambda"]);
     net.m_lambda_min = as<int>(model["lambda_min"]);
     net.m_lambda_se = as<int>(model["lambda_se"]);
-    return net.predict(newx, s);
+    Eigen::Map<const Eigen::MatrixXd> newx1(newx.data(), newx.rows(), newx.cols());
+    return net.predict(newx1, s);
 }

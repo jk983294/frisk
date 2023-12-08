@@ -1,5 +1,8 @@
 #include <common/driver_gaussian.h>
 #include <common/elnet.h>
+#include <chrono>
+
+using namespace std::chrono;
 
 namespace frisk {
 
@@ -52,6 +55,64 @@ void ElNet::elnet_exp(
     if (jerr > 0) return;
     m_lambda_min = driver.m_lambda_min;
     m_lambda_se = driver.m_lambda_se;
+}
+
+void ElNet::fit1(const double* px, const double* py, long nobs, int nvars, double alpha, int nlambda,
+                const double* p_lambda_path, int lambda_path_len,
+                bool standardize, bool fit_intercept,
+                int maxit, int max_features) {
+    steady_clock::time_point start = steady_clock::now();
+
+    double tolerance = 1e-7;
+    double lambda_min_ratio = 1e-4;
+    if (max_features <= 0 || max_features > nvars + 1) max_features = nvars + 1;
+    pmax = std::min(max_features * 2 + 20, nvars); // Limit the maximum number of variables ever to be nonzero
+    std::vector<double> lambda_path;
+    if (p_lambda_path) {
+        lambda_path = std::vector<double>(p_lambda_path, p_lambda_path + lambda_path_len);
+    }
+    if (lambda_path.empty()) {
+        ulam_ = {1};
+    } else {
+        for (size_t i = 0; i < lambda_path.size(); ++i) {
+            if (lambda_path[i] < 0) throw std::runtime_error("lambdas should be non-negative");
+        }
+        std::sort(lambda_path.begin(), lambda_path.end());
+        std::reverse(lambda_path.begin(), lambda_path.end());
+        nlambda = lambda_path.size();
+        ulam_ = lambda_path;
+        lambda_min_ratio = 1;
+    }
+
+    Eigen::MatrixXd cl(2, nvars);
+    for (int k = 0; k < nvars; ++k) {
+        cl(0, k) = -INFINITY;
+        cl(1, k) = INFINITY;
+    }
+
+    if(nobs < nvars) lambda_min_ratio = 1e-2;
+
+    m_nlambda = nlambda;
+    a0_ = std::vector<double>(nlambda, 0.);
+    ca_ = std::vector<double>(pmax * nlambda, 0);
+    ia_ = std::vector<int>(pmax, 0);
+    nin_ = std::vector<int>(nlambda, 0);
+    rsq_ = std::vector<double>(nlambda, 0.);
+    alm_ = std::vector<double>(nlambda, 0.);
+
+    steady_clock::time_point end = steady_clock::now();
+    std::cout << "took " << nanoseconds{end - start}.count() / 1000 / 1000 << " ms." << std::endl;
+    Eigen::MatrixXd X(nobs, nvars);
+    Eigen::VectorXd y(nobs);
+    std::copy(px, px + nobs * nvars, X.data());
+    std::copy(py, py + nobs, y.data());
+    steady_clock::time_point end1 = steady_clock::now();
+    std::cout << "took " << nanoseconds{end1 - end}.count() / 1000 / 1000 << " ms." << std::endl;
+
+    elnet_exp(alpha, X, y, cl,
+              max_features, pmax, nlambda, lambda_min_ratio, tolerance, standardize, fit_intercept, maxit);
+    steady_clock::time_point end2 = steady_clock::now();
+    std::cout << "took " << nanoseconds{end2 - end1}.count() / 1000 / 1000 << " ms." << std::endl;
 }
 
 void ElNet::fit(Eigen::MatrixXd X, Eigen::VectorXd y, double alpha, int nlambda, double lambda_min_ratio,

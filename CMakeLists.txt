@@ -38,6 +38,7 @@ link_directories(/usr/local/lib/)
 add_subdirectory(src/common)
 add_subdirectory(src/play)
 add_subdirectory(python)
+add_subdirectory(src/c_api)
 
 install(DIRECTORY include/ DESTINATION include)
 
